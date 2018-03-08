@@ -1,0 +1,41 @@
+{
+    "type": "object",
+    "$schema": "http://json-schema.org/draft-03/schema",
+    "properties": {
+        "Version": {
+            "type": "string",
+            "required": true
+        },
+        "Statement": {
+            "type": "array",
+            "required": true,
+            "items": {
+                "type": "object",
+                "properties": {
+                    "Effect": {
+                        "type": "string",
+                        "required": true
+                    },
+                    "Action": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "required": true
+                        }
+                    },
+                    "Resource": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "required": true
+                        }
+                    },
+                    "Condition": {
+                        "type": "object",
+                        "required": false
+                    }
+                }
+            }
+        }
+    }
+}

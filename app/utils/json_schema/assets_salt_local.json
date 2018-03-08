@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-03/schema",
+    "required": true,
+    "type": "object",
+    "id": "#",
+    "properties": {
+        "args": {
+            "items": {
+                "required": false,
+                "type": "string",
+                "id": "0"
+            },
+            "required": true,
+            "type": "array",
+            "id": "args"
+        },
+        "func": {
+            "required": true,
+            "type": "string",
+            "id": "func"
+        },
+        "kwargs": {
+            "required": false,
+            "type": "object",
+            "id": "kwargs"
+        }
+    }
+}

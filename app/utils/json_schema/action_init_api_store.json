@@ -1,0 +1,58 @@
+{
+    "$schema": "http://json-schema.org/draft-03/schema",
+    "required": true,
+    "type": "object",
+    "id": "#",
+    "properties": {
+        "b_loadbalancer_port": {
+            "required": true,
+            "type": "string",
+            "id": "b_loadbalancer_port"
+        },
+        "gitlab_token": {
+            "required": true,
+            "type": "string",
+            "id": "gitlab_token"
+        },
+        "b_loadbalancer_id": {
+            "required": true,
+            "type": "string",
+            "id": "b_loadbalancer_id"
+        },
+        "salt_minion_id": {
+            "required": true,
+            "type": "string",
+            "id": "salt_minion_id"
+        },
+        "gitlab_ref": {
+            "required": true,
+            "type": "string",
+            "id": "gitlab_ref"
+        },
+        "instance_id": {
+            "required": true,
+            "type": "string",
+            "id": "instance_id"
+        },
+        "state_lists": {
+            "items": {
+                "required": true,
+                "type": "string",
+                "id": "0"
+            },
+            "required": true,
+            "type": "array",
+            "id": "state_lists"
+        },
+        "gitlab_project_id": {
+            "required": true,
+            "type": "number",
+            "id": "gitlab_project_id"
+        },
+        "a_loadbalancer_id": {
+            "required": true,
+            "type": "string",
+            "id": "api_loadbalancer_id"
+        }
+    }
+}

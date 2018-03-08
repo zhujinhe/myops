@@ -1,0 +1,83 @@
+部署:
+##salt ext_pillar插件:
+1. 需要在salt源码处(例如/usr/lib/python2.6/site-packages/salt/pillar)增加ext_pillar插件: ops_http_json.py
+2. 在salt master上增加配置:
+  ext_pillar:
+    - ops_http_json:
+       url: https://ops.ops.com/assets/salt/%s/pillars/
+       username: username
+       password: password
+3. 增加assets/salt/<string:minion_id>/pillars/的相关路由.
+
+##ops_api发布到自定义的服务器:
+1.确保gitlab-runner正常使用user_00的key.
+2.user_00有sudo权限.且存在/data/web目录.属于user_00.users
+3.执行curl -X POST -F token=mytoken -F "ref=master" -F "variables[CUSTOM_SSH_HOST]=0.0.0.0" https://gitlab.ops.com/api/v3/projects/136/trigger/builds
+(需要把IP地址替换为目标IP地址)
+
+##设置salt-netapi的权限
+external_auth:
+  pam:
+    saltnetapi:
+      - '@wheel'
+      - '@runner'
+      - '@jobs'
+      - '*':
+        - 'state.highstate'
+        - 'state.sls'
+        - 'test.*'
+        - 'cmd.run':
+            args:
+              - 'uptime'
+
+使用队列:
+celery, redis
+redis-server
+celery worker -A celery_worker.celery --loglevel=info
+
+定义工作流: 可以使用现有的函数, 或者现有类中设置的execute方法.
+
+import taskflow.engines
+from taskflow.patterns import linear_flow as lf
+from taskflow import task
+
+def foo(name=None):
+    print name or '123'
+    import time
+    time.sleep(1)
+
+
+def bar(name1='bar'):
+    print name1
+
+
+class Baz(task.Task):
+    def execute(self, name, *args, **kwargs):
+        print("Calling joe %s." % name)
+
+
+def work_flow_example():
+    wf = lf.Flow("pass-from-to")
+    wf.add(task.FunctorTask(execute=foo))
+    wf.add(task.FunctorTask(execute=bar))
+    wf.add(Baz())
+
+    taskflow.engines.run(wf, store={
+        'name': 'name0',
+        'name1': 'name1'
+    })
+
+
+work_flow_example()
+
+初始化api的store:
+store = dict(instance_id='i-instanceid',
+             b_loadbalancer_id='lb-a',
+             b_loadbalancer_port='80',
+             a_loadbalancer_id='lb-b',
+             gitlab_project_id=136,
+             gitlab_token='token',
+             gitlab_ref='master',
+             salt_minion_id='SERVER6',
+             state_lists=['init.ulimits', 'init.cron']
+             )
