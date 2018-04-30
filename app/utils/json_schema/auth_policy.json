@@ -2,35 +2,35 @@
     "type": "object",
     "$schema": "http://json-schema.org/draft-03/schema",
     "properties": {
-        "Version": {
+        "version": {
             "type": "string",
             "required": true
         },
-        "Statement": {
+        "statement": {
             "type": "array",
             "required": true,
             "items": {
                 "type": "object",
                 "properties": {
-                    "Effect": {
+                    "effect": {
                         "type": "string",
                         "required": true
                     },
-                    "Action": {
+                    "action": {
                         "type": "array",
                         "items": {
                             "type": "string",
                             "required": true
                         }
                     },
-                    "Resource": {
+                    "resource": {
                         "type": "array",
                         "items": {
                             "type": "string",
                             "required": true
                         }
                     },
-                    "Condition": {
+                    "condition": {
                         "type": "object",
                         "required": false
                     }

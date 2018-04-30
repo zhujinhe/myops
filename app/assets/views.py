@@ -1,7 +1,8 @@
 # -*- coding: utf8 -*-
-from flask import request, jsonify
+from flask import request, jsonify, g
 from app.utils.json_schema import json_schema_validator_by_filename
-from app.auth.decorators import permission_required
+from app.auth.decorators import admin_required
+from app.auth.abac import ABAC
 from app.auth.views import basic_auth
 from . import assets
 from .models import Server, LoadBalancer, Salt
@@ -14,7 +15,6 @@ def index():
 
 
 @assets.route('/servers/', methods=['GET'])
-# @permission_required(action='foo', resource='bar')
 def get_servers():
     """
     列出所有的服务器资源
@@ -84,3 +84,24 @@ def server_salt_local(instance_id):
         ret = server.minion.local(post_data['func'], arg=post_data.get('args', []), kwarg=post_data.get('kwargs', {}))
         return jsonify(ret.json())
     return jsonify({})
+
+
+@assets.route('/server/<int:server_id>', methods=['GET'])
+@basic_auth.login_required
+# @admin_required()
+def tests(server_id):
+    server = Server.query.get_or_404(server_id)
+    abac = ABAC()
+    context = {"subject": g.current_user,
+               "resource": server,
+               "action": "do_action",
+               "environment": request
+               }
+
+    # TODO context 抽象为类.
+    # TODO 自动识别请求的目标属性.
+
+    if abac.permit_or_raise(context):
+        print("do_action?", server.do_action())
+
+    return jsonify(server.export_data())

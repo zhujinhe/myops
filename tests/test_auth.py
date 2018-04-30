@@ -100,21 +100,19 @@ class TestAuthAPI(unittest.TestCase):
         self.assertEqual(rv.status_code, 401)
 
     def test_user_policies(self):
-        # add new policy, new policy version and set as default.
-        policy_document = {"Version": "1", "Statement": [{"Action": ["oss:List*", "oss:Get*"], "Effect": "Allow",
-                                                          "Resource": ["acs:oss:*:*:samplebucket",
+        # add new policy t.
+        policy_document = {"version": "1", "statement": [{"action": ["oss:List*", "oss:Get*"], "effect": "Allow",
+                                                          "resource": ["acs:oss:*:*:samplebucket",
                                                                        "acs:oss:*:*:samplebucket/*"],
-                                                          "Condition": {"IpAddress": {"acs:SourceIp": "42.160.1.0"}}}]}
+                                                          "condition": {"IpAddress": {"acs:SourceIp": "42.160.1.0"}}}]}
 
         rv, json_data = self.client.post(url_for('auth.get_policies'), data={'name': 'foo',
                                                                              'description': 'foo desc',
-                                                                             'is_new_version': True,
-                                                                             'document': json.dumps(policy_document),
-                                                                             'set_as_default': True})
+                                                                             'document': json.dumps(policy_document)})
         self.assertEqual(rv.status_code, 201)
         self.assertEqual(rv.headers['Location'], url_for('auth.get_policy', policy_name='foo'))
         rv, json_data = self.client.get(url_for('auth.get_policy', policy_name='foo'))
-        self.assertIsNone(json_data['update_date'])
+        self.assertIsNotNone(json_data['update_date'])
 
         # 获取策略列表
         rv, json_data = self.client.get(url_for('auth.get_policies'))
@@ -131,44 +129,16 @@ class TestAuthAPI(unittest.TestCase):
             rv, json_data = self.client.post(url_for('auth.get_policies'),
                                              data={'name': 'foo',
                                                    'description': 'foo desc',
-                                                   'is_new_version': True,
-                                                   'document': json.dumps(policy_document_invalid),
-                                                   'set_as_default': True})
+                                                   'document': json.dumps(policy_document_invalid)})
 
         # 编辑策略
         rv, json_data = self.client.put(url_for('auth.get_policy', policy_name='foo'),
                                         data={'name': 'foo',
                                               'description': 'new foo desc',
-                                              'is_new_version': False})
+                                              'document': json.dumps(policy_document)})
         self.assertEqual(rv.status_code, 200)
         self.assertRegexpMatches(json_data['description'], 'new foo desc')
         self.assertIsNotNone(json_data['update_date'])
-
-        # 获取所有策略版本
-        rv, json_data = self.client.get(url_for('auth.get_policy_versions', policy_name='foo'))
-        self.assertEqual(rv.status_code, 200)
-        self.assertIsNotNone(json_data['versions'][0]['document'])
-
-        # 获取某个指定version的version详情
-        rv, json_data = self.client.get(url_for('auth.get_policy_version', version_id=1))
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(json_data['policy_id'], 1)
-        self.assertEqual(json_data['version_id'], 1)
-
-        # 新增某个指定version的version详情
-        rv, json_data = self.client.post(url_for('auth.get_policy_version', version_id=1),
-                                         data={'policy_id': 1,
-                                               'document': json.dumps(policy_document)})
-        self.assertEqual(rv.status_code, 201)
-        self.assertEqual(rv.headers['Location'], url_for('auth.get_policy_version', version_id=2))
-
-        # 修改某个指定version的version详情
-        policy_document['Version'] = "2"
-        rv, json_data = self.client.put(url_for('auth.get_policy_version', version_id=2),
-                                        data={'policy_id': 1,
-                                              'document': json.dumps(policy_document)})
-        self.assertEqual(rv.status_code, 200)
-        self.assertEqual(json.loads(json_data['document'])['Version'], "2")
 
         # 列出某个用户下的所有策略
         rv, json_data = self.client.get(url_for('auth.get_policies_of_user', email=self.default_email))
@@ -176,10 +146,9 @@ class TestAuthAPI(unittest.TestCase):
         self.assertListEqual(json_data, [])
 
         # 放在最后:
-        # 标记删除策略, 策略被标记删除, 版本也被标记删除
+        # 标记删除策略, 策略被标记删除
         rv, json_data = self.client.delete(url_for('auth.get_policy', policy_name='foo'))
         self.assertEqual(rv.status_code, 200)
         with self.assertRaises(NotFound):
             rv, json_data = self.client.get(url_for('auth.get_policy', policy_name='foo'))
-        with self.assertRaises(NotFound):
-            rv, json_data = self.client.get(url_for('auth.get_policy_versions', policy_name='foo'))
+

@@ -117,7 +117,7 @@ class User(db.Model):
         :return:
         """
         # TODO: 不知道怎么用ORM写出来了,暂时这么写吧.
-        policies = [g.policies.all() for g in User.query.get(self.user_id).groups]
+        policies = [g.policies.all() for g in self.groups]
         return list(set([p for j in policies for p in j]))
 
     def list_all_policies(self):
@@ -204,25 +204,15 @@ class Group(db.Model):
 
 class Policy(db.Model):
     """
-    某条策略.
-        "Policy": {
-        "PolicyName": "OSS-Administrator",
-        "Description": "OSS管理员权限",
-        "DefaultVersion": "v1",
-        "CreateDate": "2015-01-23T12:33:18Z",
-        "UpdateDate": "2015-01-23T12:33:18Z",
-    }
-    Policy与PolicyVersion是一对多.
+    策略内容
     """
-    # TODO 同时记录Policy和PolicyVersion有些过度设计,可以简化为只要Policy并记录log的方式.
 
     __tablename__ = 'policies'
     __table_args__ = {'mysql_charset': 'utf8', 'mysql_engine': 'InnoDB'}
     policy_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(128))
     description = db.Column(db.String(1024))
-    default_version = db.Column(db.Integer)
-    versions = db.relationship('PolicyVersion', backref='policy', lazy='dynamic')
+    document = db.Column(db.JSON, nullable=False)
     create_date = db.Column(db.DateTime, default=datetime.utcnow)
     update_date = db.Column(db.DateTime)
     delete_date = db.Column(db.DateTime, default='1000-01-01 00:00:00')
@@ -230,52 +220,28 @@ class Policy(db.Model):
     def get_url(self):
         return url_for('auth.get_policy', policy_name=self.name, _external=True)
 
-    def set_default_version(self, version_id):
-        version = self.versions.get(version_id).first()
-        if version is None:
-            return False
-        self.default_version = version.version_id
-        db.session.add(self)
-        return True
-
-    @property
-    def default_document(self):
-        default_version = self.versions.filter_by(version_id=self.default_version).first()
-        if default_version is not None:
-            return default_version.document
-
-    def add_policy_version(self, document, set_as_default=False):
-
-        new_version = PolicyVersion(
-            policy_id=self.policy_id,
-            document=document,
-        )
-        new_version = new_version.import_data({'policy_id': self.policy_id,
-                                               'document': document})
-
-        db.session.add(new_version)
-        db.session.flush()
-
-        if set_as_default:
-            self.default_version = new_version.version_id
-        self.versions.append(new_version)
-        db.session.add(self)
-        return new_version
+    def validate_document(self, json_schema=None):
+        if not json_schema:
+            return json_schema_validator_by_filename(self.document, 'auth_policy.json')
+        else:
+            return json_schema_validator(self.document, json_schema)
 
     def export_data(self):
         """
          返回结果
         :return:
         """
-        return {
-            'policy_id': self.policy_id,
-            'name': self.name,
-            'description': self.description,
-            'versions': [version.export_data() for version in self.versions],
-            'default_document': self.default_document,
-            'create_date': self.create_date,
-            'update_date': self.update_date
-        }
+        if self.delete_date is not '1000-01-01 00:00:00':
+            return {
+                'policy_id': self.policy_id,
+                'name': self.name,
+                'description': self.description,
+                'document': self.document,
+                'create_date': self.create_date,
+                'update_date': self.update_date
+            }
+        else:
+            return {}
 
     def import_data(self, data):
         """
@@ -286,79 +252,16 @@ class Policy(db.Model):
         """
         try:
             self.name = data['name']
-            is_new_version = data['is_new_version']
+            self.document = data['document']
         except KeyError as e:
             raise ValidationError('Invalid Policy: missing ' + e.args[0])
+        # 验证document的合法性.
+        if not self.validate_document():
+            raise ValidationError('Invalid Policy: document validation error')
         self.description = data.get('description')
+        self.update_date = datetime.utcnow()
 
-        if is_new_version is True:
-            try:
-                set_as_default = data['set_as_default']
-                document = data['document']
-            except KeyError as e:
-                raise ValidationError('Invalid Policy: missing ' + e.args[0] + ' for new version')
-            self.add_policy_version(document=document, set_as_default=set_as_default)
-        else:
-            self.update_date = datetime.utcnow()
         return self
 
     def __repr__(self):
         return '<Policy %r>' % self.name
-
-
-class PolicyVersion(db.Model):
-    """
-    策略内容和版本号
-        "PolicyVersion": {
-        "VersionId": "v3",
-        "IsDefaultVersion": false,
-        "CreateDate": "2015-01-23T12:33:18Z",
-        "PolicyDocument": "{ \"Statement\": [{ \"Action\": [\"oss:*\"], \"Effect\": \"Allow\", \"Resource\": [\"acs:oss:*:*:*\"]}], \"Version\": \"1\"}"
-    }
-    """
-    __tablename__ = 'policy_versions'
-    __table_args__ = {'mysql_charset': 'utf8', 'mysql_engine': 'InnoDB'}
-
-    version_id = db.Column(db.Integer, primary_key=True)
-    policy_id = db.Column(db.Integer, db.ForeignKey('policies.policy_id'))
-    document = db.Column(db.JSON)
-    create_date = db.Column(db.DateTime, default=datetime.utcnow)
-    delete_date = db.Column(db.DateTime, default='1000-01-01 00:00:00')
-
-    def get_url(self):
-        return url_for('auth.get_policy_version', version_id=self.version_id, _external=True)
-
-    @property
-    def is_default(self):
-        return self.version_id == self.policy.default_version
-
-    def validate_document(self, json_schema=None):
-        if not json_schema:
-            return json_schema_validator_by_filename(self.document, 'auth_policy.json')
-        else:
-            return json_schema_validator(self.document, json_schema)
-
-    def export_data(self):
-        return {
-            'version_id': self.version_id,
-            'document': self.document,
-            'create_date': self.create_date,
-            'policy_id': self.policy_id,
-            'is_default': self.is_default
-        }
-
-    def import_data(self, data):
-        try:
-            self.policy_id = data['policy_id']
-            self.document = data['document']
-        except KeyError as e:
-            raise ValidationError('Invalid PolicyVersion: missing ' + e.args[0])
-
-        # 验证document的合法性.
-        if not self.validate_document():
-            raise ValidationError('Invalid PolicyVersion: document validation error')
-
-        return self
-
-    def __repr__(self):
-        return '<PolicyVersion %r>' % self.version_id

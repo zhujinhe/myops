@@ -12,3 +12,7 @@ class DNSPodError(ValueError):
 
 class CeleryError(ValueError):
     pass
+
+
+class UnImplemented(ValidationError):
+    pass

@@ -1,13 +1,13 @@
 # -*- coding: utf8 -*-
-from flask import request, jsonify, g
+from flask import request, jsonify, g, current_app
 from flask_httpauth import HTTPBasicAuth
-from .models import User, Group, Policy, PolicyVersion
-from .decorators import permission_required
+from .models import User, Group, Policy
+from .decorators import admin_required
 from .. import db
 from . import auth
 from app.exceptions import ValidationError
 from datetime import datetime
-from errors import unauthorized
+from .errors import unauthorized
 
 basic_auth = HTTPBasicAuth()
 
@@ -35,6 +35,14 @@ def verify_credential(email_or_token, password):
     g.current_user = user
     g.token_used = False
     return user.verify_password(password)
+
+
+@basic_auth.login_required
+def is_admin():
+    if g.current_user.email in current_app.config['ADMIN_EMAIL_LIST']:
+        return True
+    else:
+        return False
 
 
 @auth.route('/users/', methods=['GET'])
@@ -243,96 +251,19 @@ def edit_policy(policy_name):
 @auth.route('/policies/<string:policy_name>', methods=['DELETE'])
 def delete_policy(policy_name):
     """
-    根据策略名称删除指定的策略内容.
-    并附带删除该策略下所有的version.只标记删除.
+    根据策略名称标记删除指定的策略内容.
     :param policy_name:
     :return:
     """
     policy = Policy.query.filter_by(name=policy_name).filter_by(delete_date='1000-01-01 00:00:00').first_or_404()
     policy.delete_date = datetime.utcnow()
-    for version in policy.versions:
-        version.delete_date = datetime.utcnow()
     db.session.add(policy)
-    db.session.commit()
-    return jsonify({})
-
-
-@auth.route('/policies/<string:policy_name>/versions/', methods=['GET'])
-def get_policy_versions(policy_name):
-    """
-    单独获取某个策略的所有版本, 其实包括在获取策略里面.
-    """
-    policy = Policy.query.filter_by(name=policy_name).filter_by(delete_date='1000-01-01 00:00:00').first_or_404()
-    return jsonify({'versions': [version.export_data() for version in policy.versions], 'policy_name': policy.name})
-
-
-@auth.route('/policy-versions/', methods=['GET'])
-def get_all_policy_versions():
-    """
-    获取所有策略的多有版本
-    :return:
-    """
-    versions = PolicyVersion.query.all()
-    return jsonify({'versions': [version.export_data() for version in versions]})
-
-
-@auth.route('/policy-versions/<int:version_id>', methods=['GET'])
-def get_policy_version(version_id):
-    """
-    获取某个指定version的version详情
-    :param version_id:
-    :return:
-    """
-    version = PolicyVersion.query.get_or_404(version_id)
-    return jsonify(version.export_data())
-
-
-@auth.route('/policy-versions/<int:version_id>', methods=['POST'])
-def new_policy_version(version_id):
-    """
-    新增某个指定version的version详情
-    :param version_id:
-    :return:
-    """
-    version = PolicyVersion()
-    version.import_data(request.get_json())
-    db.session.add(version)
-    db.session.commit()
-    return jsonify(version.export_data()), 201, {'Location': version.get_url()}
-
-
-@auth.route('/policy-versions/<int:version_id>', methods=['PUT'])
-def edit_policy_version(version_id):
-    """
-    修改某个指定version的version详情
-    :param version_id:
-    :return:
-    """
-    version = PolicyVersion.query.get_or_404(version_id)
-    version.import_data(request.get_json())
-    db.session.add(version)
-    db.session.commit()
-    return jsonify(version.export_data())
-
-
-@auth.route('/policy-versions/<int:version_id>', methods=['DELETE'])
-def delete_policy_versions(version_id):
-    """
-    如果该版本不是默认版本, 则标记删除.
-    :param version_id:
-    :return:
-    """
-    version = PolicyVersion.query.get_or_404(version_id)
-    if version['is_default']:
-        raise ValidationError('can not delete default version')
-    version.delete_date = datetime.utcnow()
-    db.session.add(version)
     db.session.commit()
     return jsonify({})
 
 
 @auth.route('/protected/')
 @basic_auth.login_required
-@permission_required(action='foo', resource='bar')
+@admin_required()
 def get_protected_resource():
     return jsonify({'resource': 1})

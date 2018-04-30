@@ -40,6 +40,10 @@ class Server(db.Model):
     minion = db.relationship('Salt', backref='server', uselist=False)
     macros = db.relationship('ServerMacro', backref='servers', lazy='dynamic')
 
+    __resource_prefix = 'serveraa'  # 可选字符串, 资源前缀
+    __resource_field_name = 'id'  # 可选字符串, 代表资源后缀的字段
+    __resource_method_list = ['do_action', 'do_action2', "*"]  # 可选列表, 代表支持的动作, *代表支持所有操作
+
     @staticmethod
     def _update(instance_id, instance):
         """
