@@ -2,7 +2,7 @@ alembic==0.9.2
 aliyun-python-sdk-core==2.3.5
 aliyun-python-sdk-ecs==4.0.0
 aliyun-python-sdk-slb==2.1.2
-celery==4.1.0
+celery==5.2.2
 certifi==2017.7.27.1
 chardet==3.0.4
 click==6.7
